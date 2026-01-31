@@ -1,6 +1,6 @@
 ## Introduction
 
-Intend to build a majhong tiles that can control the win rate of the players.
+Intend to build a mahjong tiles that can control the win rate of the players.
 
 ## License
 
