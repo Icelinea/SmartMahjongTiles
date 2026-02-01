@@ -1,2 +1,5 @@
-__pycache__/*
-assets/*
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+@assets/*
