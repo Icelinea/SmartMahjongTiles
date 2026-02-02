@@ -14,7 +14,6 @@ class MahjongGame:
         self._turn = 0  # 0:东, 1:南, 2:西, 3:北
 
         self._heart_beats = heart_beats
-
         self.debug_mode = debug_mode
 
     def _setup(self):
