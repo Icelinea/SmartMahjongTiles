@@ -1,8 +1,7 @@
-
+import time
+import queue
 import asyncio
 import threading
-import time
-from concurrent.futures.thread import ThreadPoolExecutor
 
 from loguru import logger
 
@@ -13,25 +12,29 @@ from ui.window import MahjongUI
 
 class SmartMahjong():
     def __init__(self):
+        self._shared_queue = queue.Queue(maxsize=10)
+
         self._tiles = MahjongWall()
         self._game = MahjongGame(debug_mode=True)
-        self._ui = MahjongUI(mode="debug", game=self._game)
+        self._ui = MahjongUI(mode="debug")
 
         self._game._setup()
 
         self._wall_thread: threading.Thread = threading.Thread(target=self._tiles.run, daemon=True)
-        self._game_thread: threading.Thread = threading.Thread(target=self._game.run, daemon=True)
-        self._ui_thread: threading.Thread = threading.Thread(target=self._ui.run, daemon=True)
-        self._threads = [self._wall_thread, self._game_thread, self._ui_thread]
+        self._game_thread: threading.Thread = threading.Thread(target=self._game.run, args=(self._shared_queue,), daemon=True)
+        # self._ui_thread: threading.Thread = threading.Thread(target=self._ui.run, args=(self._shared_queue,), daemon=True)
+        self._threads = [self._wall_thread, self._game_thread]
     
     def run(self):
-        # for i in range(len(self._threads)):
-            # self._threads[i].start()
-        self._threads[2].start()
+        for i in range(len(self._threads)):
+            self._threads[i].start()
 
         try:
-            while True:
-                time.sleep(1)
+            # pygame 要求必须运行在主线程上
+            self._ui.run(self._shared_queue)
+
+            # for i in range(len(self._threads)):
+            #     self._threads[i].join()
         except Exception as e:
             if e == "KeyboardInterrupt":
                 logger.exception(f"Threads Killed by Keyboard Interrupt.")

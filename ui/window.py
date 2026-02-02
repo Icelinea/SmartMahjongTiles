@@ -1,8 +1,8 @@
 import os
-import sys
 import time
-from loguru import logger
+from queue import Queue, Empty
 import pygame
+from loguru import logger
 
 from agent.game import MahjongGame
 
@@ -16,9 +16,8 @@ BG_COLOR = (34, 139, 34) # 森林绿，模拟麻将桌布，还有 _draw_tile �
 
 
 class MahjongUI:
-    def __init__(self, mode="debug", game=None):
+    def __init__(self, mode="debug"):
         pygame.init()
-        self.game: MahjongGame = game   # temp
         """
         self._mode: 
         1. "debug": Show all players tiles, no hidden info.
@@ -65,7 +64,7 @@ class MahjongUI:
             # self._screen.blit(text, (x + 5, y + 20))
         pygame.draw.rect(self._screen, (0, 0, 0), rect, 2) # 边框
         
-    def _render(self):
+    def _render(self, players_hands, discards):
         self._screen.fill(BG_COLOR)
         self._player_rects = [] # 每帧清空，重新计算
         
@@ -86,8 +85,8 @@ class MahjongUI:
 
         player_idx = 0  # extra para
         try:
-            # for i in range(len(self.game._players_hand)):
-            for idx, tile in enumerate(self.game._players_hand[0]): # i
+            # for i in range(len(players_hands)):
+            for idx, tile in enumerate(players_hands[0]): # i
                 x, y = positions[0]   # i
                 offset = idx * (TILE_SIZE[0] + 5)
                 mode = "front" if idx == player_idx or self._mode == "debug" else "back"
@@ -102,13 +101,13 @@ class MahjongUI:
             logger.exception(e)
 
         # 3. 绘制弃牌区 (Discards)
-        # discard_positions = [(400, 400), (600, 300), (400, 200), (200, 300)]
-        # for i, discards in enumerate(self.game._discards):
-        #     base_x, base_y = discard_positions[i]
-        #     for idx, tile in enumerate(discards):
-        #         row = idx // 6
-        #         col = idx % 6
-        #         self._draw_tile(base_x + col*35, base_y + row*50, [tile], "front")
+        discard_positions = [(400, 400), (600, 300), (400, 200), (200, 300)]
+        for i, discards in enumerate(discards):
+            base_x, base_y = discard_positions[i]
+            for idx, tile in enumerate(discards):
+                row = idx // 6
+                col = idx % 6
+                self._draw_tile(base_x + col*35, base_y + row*50, [tile], "front")
 
         pygame.display.flip()
 
@@ -165,16 +164,38 @@ class MahjongUI:
 
         return images
 
-    def run(self):
-        while True:
-            # for event in pygame.event.get():
-            #     if event.type == pygame.QUIT:
-            #         pygame.quit()
-            #         sys.exit()
-                 
-            #     if event.type == pygame.MOUSEBUTTONDOWN:
-            #         if event.button == 1: # 左键点击
-            #             pass
-            #             self._handle_click(event.pos)
-            time.sleep(5)
-            self._render()
+    def run(self, data_queue: Queue):
+        try:
+            clock = pygame.time.Clock()
+            running = True
+            while running:
+                # pygame 事件捕获
+                for event in pygame.event.get():
+                    if event.type == pygame.QUIT:
+                        running = False
+                    
+                    # if event.type == pygame.MOUSEBUTTONDOWN:
+                    #     if event.button == 1: # 左键点击
+                    #         pass
+                    #         self._handle_click(event.pos)
+
+                # game 传递的游戏数据渲染
+                try:
+                    item = data_queue.get_nowait()
+                    if item:
+                        self._render(item["players_hands"], item["discards"])
+
+                    if self._mode == "debug":
+                        logger.debug(f"--- UI Side ---")
+                        logger.debug("players_hands: {}".format(item["players_hands"][0]))
+                        logger.debug("discards: {}\n".format(item["discards"][0]))
+                except Empty:
+                    # get_nowait 未捕获到数据的异常
+                    pass
+
+                # 渲染帧率
+                clock.tick(60)
+        except Exception as e:
+            logger.exception(e)
+        finally:
+            pygame.quit()
